@@ -1,78 +1,121 @@
-# 🌑 ZTF Shadow & Blindspot Hunter
+# ZTF Shadow & Blindspot Hunter
 
-![Python](https://img.shields.io/badge/Python-3.10%2B-blue?logo=python&logoColor=white)
+![Python](https://img.shields.io/badge/Python-3.11%2B-blue?logo=python&logoColor=white)
 ![GitHub Actions](https://img.shields.io/badge/GitHub%20Actions-Nightly-2088FF?logo=githubactions&logoColor=white)
-![ALeRCE ZTF](https://img.shields.io/badge/Data-ZTF%20%2F%20ALeRCE-8957E5)
+![ZTF / ALeRCE](https://img.shields.io/badge/Data-ZTF%20%2F%20ALeRCE-8957E5)
 ![Scikit-Learn](https://img.shields.io/badge/ML-Isolation%20Forest-F7931E)
 
-**Herkesin baktığı bariz süpernovaları bilinçli olarak es geçen, iki unorthodox gökyüzü sinyaline odaklanan otomatik ZTF avcısı.**
+After building [TESS Planet Hunter](https://github.com/CemreMetin/tess-planet-hunter) — and finding out the hard way that the IAU won't let me name an exoplanet after myself — I moved on to the next obvious target: **supernovae**. Unlike planets, new supernovae go off every single night in open **ZTF (Zwicky Transient Facility)** data, so the odds of catching something real are way higher.
 
-### Hikâye: Neden Düz Bir Süpernova Botu Değil?
+There was just one problem: literally *everyone* in astronomy runs the exact same `SN probability > 0.70` filter. Professional survey bots already report the obvious textbook supernovae to TNS within minutes. Sitting in the back of the same traffic jam didn't sound like much fun, so I decided to dig through **ZTF's trash can** instead.
 
-[TESS Planet Hunter](https://github.com/CemreMetin/tess-planet-hunter) projesinde NASA TESS verilerinden periyodik gezegen geçişleri avladıktan sonra, sıradaki adım olarak ZTF (Zwicky Transient Facility) verilerine geçmek istedim. Ama kısa sürede şunu fark ettim: ZTF'de herkes `SN > 0.70` filtresiyle **bariz, ders kitabı süpernovalara** bakıyor — onları da büyük gözlemevleri zaten saatler içinde TNS'ye bildirip kapatıyor.
-
-Aynı otoyolda sıraya girmek yerine **tam tersini** yapan bir sistem kurdum:
-
-1. **🌑 Track A — Shadow (Aniden Kararan Yıldızlar / `isdiffpos = -1`):**
-   Süpernova avcıları negatif fark alarmlarını (referans görüntüye göre *kararan* yıldızları) doğrudan çöpe atar. Oysa **Tabby's Star (Boyajian's Star)** benzeri gizemli kararmalar, **dev halka sistemli ötegezegenler (J1407b)**, **parçalanan gezegen enkazları** ve **toz püskürten yıldızlar** tam bu negatif sinyallerde saklanır. TESS'teki gezegen geçişi avının doğrudan ruhani devamı.
-2. **🧠 Track B — AI Blindspot (Yapay Zekânın Kafası Karışanlar & Mavi Ateş):**
-   ALeRCE'nin görüntüye bakan yapay zekâsı (`stamp_classifier`) ile ışık eğrisine bakan yapay zekâsının (`lc_classifier`) **birbiriyle kavga ettiği**, yüksek belirsizlik (Shannon entropisi) ürettiği veya normal süpernovalar gibi kızarmak yerine haftalarca **aşırı mavi (`g - r < -0.10`)** kalan nadir olayları (TDE, FBOT, yetim patlamalar) avlar.
-3. **♻️ Çöpe Atma, Yan Ürün Biriktir:**
-   Filtreye takılan sıradan örten çift yıldızlar `data/known_eclipsing_binaries.csv`, büyük kuasar/AGN parlamaları ise `data/agn_flares.csv` dosyasında ayrı veri setleri olarak biriktirilir.
+Every night, a zero-cost GitHub Actions job scans ALeRCE for two things most supernova pipelines throw away or ignore — **stars that suddenly go dark** and **weird events where two AIs disagree** — cross-checks them against **SIMBAD** and **AAVSO VSX**, and packs the best candidates into tiny `.npz` files so I can review them in 15 minutes on Sunday with a keyboard-driven dark-mode UI.
 
 ---
 
-## Mimari (3 Aşama)
+### My Twist on the Idea
+
+- **Hunt shadows, not just explosions (`isdiffpos = -1`):** Almost every supernova bot immediately discards negative difference-image alerts (stars getting *fainter* than the reference image). That's exactly where mysterious dimming events — **Tabby's Star (Boyajian's Star)** analogs, giant planetary ring systems like J1407b, disintegrating planet debris, and dust-obscured young stars — hide. It felt like the natural sequel to hunting planet transits with TESS.
+- **Hunt the AI's blind spots:** Instead of asking ALeRCE for objects it's 95% sure about, I look for objects where its image classifier (`stamp_classifier`) and light-curve classifier (`lc_classifier`) **disagree**, where the classifier's Shannon entropy is sky-high ("no idea what this is"), or where a transient stays unusually **blue and hot (`g - r < -0.10`)** instead of cooling down like a normal supernova.
+- **Automatic novelty check (SIMBAD + AAVSO VSX):** Every candidate is queried against SIMBAD and VizieR's AAVSO VSX catalog automatically. Anything missing from both gets an `UNCATALOGED` badge and a weirdness boost — because if I can't name a planet, maybe I can at least log an uncataloged variable star.
+- **Keep the byproducts:** Obvious eclipsing binaries (`data/known_eclipsing_binaries.csv`) and big AGN flares (`data/agn_flares.csv`) get saved as bonus datasets instead of being thrown away.
+
+---
+
+## How It Works
+
+Just like my TESS pipeline, I kept the cloud worker super lightweight (no heavy ML libraries in CI) and split everything into **three stages**:
 
 ```mermaid
 flowchart TD
-    A[ALeRCE / ZTF Gece Havuzu<br/>Shadow + Blindspot + Rare] --> B[Nightly GitHub Actions<br/>03:17 UTC]
-    B --> C[Ozellik Cikarimi & Veto<br/>g/r isik egrisi, isdiffpos, g-r renk, AI entropi]
-    C -->|Siradan Orten Cift Yildiz| D[data/known_eclipsing_binaries.csv]
-    C -->|Buyuk AGN Parlamasi| E[data/agn_flares.csv]
-    C -->|Unorthodox Adaylar| F[Kompakt Vektorler<br/>pending_candidates/batch_YYYYMMDD.npz]
-    F --> G[Pazar Lokal AI Skorlama<br/>ai/weirdness.py — Isolation Forest + Domain]
-    G --> H[Klavyeli Dark-Mode Triyaj<br/>triage.py — Sag/Asagi/Yukari/o]
+    A[ALeRCE / ZTF Nightly Pool<br/>Shadow + Blindspot + Rare] --> B[Nightly GitHub Actions<br/>03:17 UTC]
+    B --> C[Feature Extraction & Veto<br/>g/r light curve, isdiffpos, g-r color, AI entropy]
+    C -->|Known Eclipsing Binaries| D[data/known_eclipsing_binaries.csv]
+    C -->|Big AGN Flares| E[data/agn_flares.csv]
+    C -->|Unorthodox Candidates| F[SIMBAD & AAVSO VSX Check<br/>pending_candidates/batch_YYYYMMDD.npz]
+    F --> G[Sunday Local AI Scoring<br/>Isolation Forest + Domain Weirdness]
+    G --> H[Keyboard Triage UI<br/>Right: Verify · Down: Reject · Up: Flag · o: Open Web]
 ```
 
-- **Aşama 1 — Gececi Bulut Otopilotu (`pipeline/worker.py`):** Her gece `03:17 UTC`'de GitHub Actions çalışır (`requirements-worker.txt` — hafif, sıfır maliyet), yeni adayları sıkıştırılmış `.npz` olarak `pending_candidates/` içine commit eder.
-- **Aşama 2 — Lokal Tuhaflık Skorlayıcı (`ai/weirdness.py`):** Pazar günü hafta boyu biriken `.npz` paketlerini birleştirir; **%65 fiziksel/AI belirsizlik + %35 unsupervised Isolation Forest outlier skoru** ile en tuhaf adayları en başa dizer.
-- **Aşama 3 — Klavyeli Pazar Triyajı (`triage.py`):** Solda `g`/`r` ışık eğrisi (parlamalar `o`, **kararmalar ters üçgen `v`**), sağ üstte **`g - r` renk evrimi**, sağ altta **AI kavga & tuhaflık barları**. Tek tuşla (`[o]`) ALeRCE + Legacy Survey + TNS sekmelerini açar.
+- **Stage 1 — Nightly Cloud Autopilot (`pipeline/worker.py`):** Runs every night at `03:17 UTC` on GitHub Actions, shuffles across Shadow, Blindspot, and rare transient pools, filters out sensor bogus and boring textbook objects, queries SIMBAD + AAVSO VSX, and commits a compact `.npz` batch back to the repo.
+- **Stage 2 — Local Weirdness Scorer (`ai/weirdness.py`):** On Sunday, merges the week's `.npz` batches and ranks every candidate using a blend of **65% physical/AI weirdness** (dimming depth, model conflict, entropy, blue color, uncataloged bonus) and **35% unsupervised Isolation Forest** outlier scoring.
+- **Stage 3 — Sunday Keyboard Review (`triage.py`):** Dark-mode matplotlib UI showing the `g` and `r` band light curve (brightening as circles `o`, **dimming as downward triangles `v`**), the `g - r` color evolution, and the AI conflict breakdown. Press `o` to instantly open **ALeRCE**, **Legacy Survey**, **TNS**, and **AAVSO VSX** in your browser for the current target.
+
+### Reading the Plots (`triage_cheat_sheet.png`)
+
+Since I'm still learning to read astronomical light curves by eye, I also wrote a quick script (`scripts/make_cheat_sheet.py`) to generate a side-by-side reference card:
+
+![ZTF Triage Cheat Sheet](triage_cheat_sheet.png)
 
 ---
 
-## Kurulum ve Pazar Rutini
+## Real Bugs I Hit While Testing Live Data
 
-### 1. Lokal Ortam (Tek Seferlik)
+- **The entropy calibration trap:** On my first live ALeRCE run, `lc_entropy >= 0.60` let 15 out of 20 objects straight through. Because `lc_classifier` splits probabilities across 15 classes, most normal variable stars sit around `0.65–0.82`. Tightening it to `>= 0.85` immediately cut the noise down to genuinely confused objects.
+- **Pool starvation:** Initially the worker processed the `YSO` query before everything else, so the nightly cap filled up before ever reaching the `Blindspot` and `Blue Fire` pools. Shuffling the combined pool deterministically per day fixed the balance right away.
+- **Catalog TAP endpoints:** My first SIMBAD/VizieR TAP URLs timed out silently and returned `CHECK_FAILED` for every target. Switching to `simbad.u-strasbg.fr` (with a Harvard mirror fallback) and VizieR's lightweight `asu-tsv` cone-search endpoint made cross-matching fast and reliable.
+
+---
+
+## Want to Run It Yourself?
+
+### 1. Local setup (one-time)
 ```bash
+git clone https://github.com/CemreMetin/ztf-shadow-hunter.git
+cd ztf-shadow-hunter
+
 python -m venv venv
 # Windows PowerShell:
 .\venv\Scripts\Activate.ps1
+# macOS / Linux:
+# source venv/bin/activate
 
 pip install -r requirements.txt
 ```
 
-### 2. Grafik Okuma Kopya Kağıdını Oluştur
-```bash
-python scripts/make_cheat_sheet.py
-```
-`triage_cheat_sheet.png` dosyası **Kararan Yıldız (Shadow)**, **Mavi Ateş (TDE/FBOT)**, **Sıradan Süpernova** ve **Gürültü** grafiklerini yan yana özetler.
+### 2. Turn on the nightly GitHub Actions autopilot
+1. Go to **Settings → Actions → General → Workflow permissions** and enable **Read and write permissions**.
+2. Go to **Actions → Nightly ZTF Shadow & Blindspot Hunter → Run workflow** to trigger your first run manually (or just wait for `03:17 UTC`).
 
-### 3. GitHub Actions'ı Aç
-1. Public GitHub reposunda **Settings → Actions → General → Workflow permissions** → **Read and write permissions** aç.
-2. **Actions → Nightly ZTF Shadow & Blindspot Hunter → Run workflow** ile ilk gece paketini hemen test et.
-
-### 4. Pazar Rutinin (15–30 Dakika)
+### 3. Your Sunday routine (~15 min)
 ```bash
 git pull
 python -m ai.weirdness
 python triage.py
 ```
 
-**Triyaj Tuşları:**
-- `[Sağ]` Onayla (`triage_logs/verified_candidates.csv`)
-- `[Aşağı]` Ele (`triage_logs/rejected_candidates.csv`)
-- `[Yukarı]` Derin İncele / Şüpheli (`triage_logs/flagged_candidates.csv`)
-- `[Sol]` Geri Al
-- `[o]` Tarayıcıda **ALeRCE + Legacy Survey + TNS** aç
-- `[q]` Kaydet ve Çık
+**Keyboard controls inside `triage.py`:**
+- `Right` — Verify / Interesting (`triage_logs/verified_candidates.csv`)
+- `Down` — Reject (`triage_logs/rejected_candidates.csv`)
+- `Up` — Flag for deeper follow-up (`triage_logs/flagged_candidates.csv`)
+- `Left` — Undo
+- `o` — Open **ALeRCE + Legacy Survey + TNS + AAVSO VSX** in your browser
+- `q` / `Esc` — Save & quit
+
+---
+
+## Project Layout
+
+```text
+.
+├── .github/workflows/nightly_hunt.yml   # Nightly 03:17 UTC GitHub Actions job
+├── pipeline/
+│   ├── features.py                      # 10 physical/AI features & 64-pt LC packer
+│   ├── vetos.py                         # Shadow/Blindspot rules & byproduct split
+│   ├── catalog.py                       # SIMBAD + AAVSO VSX novelty checker
+│   └── worker.py                        # Nightly ALeRCE harvester
+├── ai/
+│   └── weirdness.py                     # Isolation Forest + domain weirdness scorer
+├── scripts/
+│   └── make_cheat_sheet.py              # Generates triage_cheat_sheet.png
+├── triage.py                            # Dark-mode keyboard candidate reviewer
+├── requirements-worker.txt              # Lightweight CI dependencies
+└── requirements.txt                     # Full local environment (scikit-learn + matplotlib)
+```
+
+---
+
+## Credits
+- Alert stream and broker APIs by **ZTF (Zwicky Transient Facility)** and **ALeRCE**.
+- Catalog cross-matching via **CDS SIMBAD**, **VizieR**, and **AAVSO VSX**.
+- Built as the spiritual sequel to [TESS Planet Hunter](https://github.com/CemreMetin/tess-planet-hunter) with AI pair-programming via **Google Antigravity**.
