@@ -119,4 +119,4 @@ python triage.py
 ## Credits
 - Alert stream and broker APIs by **ZTF (Zwicky Transient Facility)** and **ALeRCE**.
 - Catalog cross-matching via **CDS SIMBAD**, **VizieR**, and **AAVSO VSX**.
-- Built as the spiritual sequel to [TESS Planet Hunter](https://github.com/CemreMetin/tess-planet-hunter) — big shoutout to **Google Antigravity**, which pair-programmed, debugged, and calibrated this whole pipeline with me.
+- Built as the spiritual sequel to [TESS Planet Hunter](https://github.com/CemreMetin/tess-planet-hunter), designed, debugged, and calibrated using **Google Antigravity**.
