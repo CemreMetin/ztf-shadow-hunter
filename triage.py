@@ -66,7 +66,7 @@ class ZTFWeirdTriage:
     def setup_ui(self) -> None:
         self.fig = plt.figure(figsize=(14, 7.2), facecolor="#0d1117")
         self.fig.canvas.manager.set_window_title(
-            f"ZTF Shadow & Blindspot Triyaj - {os.path.basename(self.npz_path)}"
+            f"ZTF Shadow & Blindspot Triage - {os.path.basename(self.npz_path)}"
         )
 
         # Left: Light curve (g & r bands, positive vs negative alerts)
@@ -85,7 +85,7 @@ class ZTFWeirdTriage:
         self.fig.text(
             0.06,
             0.03,
-            "[Sag] Onayla  |  [Asagi] Ele  |  [Yukari] Derin Incele  |  [Sol] Geri Al  |  [o] ALeRCE+Legacy+TNS Ac  |  [q] Kaydet & Cikis",
+            "[Right] Verify  |  [Down] Reject  |  [Up] Flag  |  [Left] Undo  |  [o] Open ALeRCE+Legacy+TNS+VSX  |  [q] Save & Quit",
             color="#8b949e",
             fontsize=9,
             family="monospace",
@@ -111,7 +111,7 @@ class ZTFWeirdTriage:
 
     def update_plot(self) -> None:
         if self.idx >= self.total:
-            self.hud.set_text("TUM ADAYLAR TARANDI! Kararlar kaydedildi — kapatmak icin [q]'ya bas.")
+            self.hud.set_text("ALL CANDIDATES REVIEWED! Decisions saved — press [q] to exit.")
             self.subhud.set_text("")
             self.fig.canvas.draw_idle()
             return
@@ -130,14 +130,14 @@ class ZTFWeirdTriage:
 
         track_color = "#ff7b72" if track == "SHADOW" else ("#d2a8ff" if track == "HYBRID" else "#58a6ff")
         cat_status = str(self.catalog_status[self.idx])
-        cat_badge = "★ UNCATALOGED (SIMBAD/VSX YOK!)" if cat_status == "UNCATALOGED" else cat_status
+        cat_badge = "★ UNCATALOGED (NOT IN SIMBAD/VSX)" if cat_status == "UNCATALOGED" else cat_status
         self.hud.set_color("#3fb950" if cat_status == "UNCATALOGED" else track_color)
         self.hud.set_text(
-            f"[{track}] {oid}  |  Weirdness: {score_str}  |  Katalog: {cat_badge}  |  ({self.idx + 1}/{self.total})"
+            f"[{track}] {oid}  |  Weirdness: {score_str}  |  Catalog: {cat_badge}  |  ({self.idx + 1}/{self.total})"
         )
         self.subhud.set_text(
-            f"Etiket: {tags} | RA/Dec: {ra:.4f}, {dec:+.4f} | ndet: {int(self.ndet[self.idx])} | "
-            f"Genlik: {amp_mag:.2f}m | Stamp AI: {self.stamp_cls[self.idx]}({self.stamp_prob[self.idx]*100:.0f}%) "
+            f"Tags: {tags} | RA/Dec: {ra:.4f}, {dec:+.4f} | ndet: {int(self.ndet[self.idx])} | "
+            f"Amp: {amp_mag:.2f}m | Stamp AI: {self.stamp_cls[self.idx]}({self.stamp_prob[self.idx]*100:.0f}%) "
             f"vs LC AI: {self.lc_cls[self.idx]}({self.lc_prob[self.idx]*100:.0f}%)"
         )
 
@@ -152,10 +152,10 @@ class ZTFWeirdTriage:
         valid = np.isfinite(dt) & np.isfinite(mag)
 
         specs = [
-            ((fid == 1) & (sign >= 0) & valid, "o", "#39c5cf", "g-band parlama (+)"),
-            ((fid == 1) & (sign < 0) & valid, "v", "#a371f7", "g-band KARARMA (-)"),
-            ((fid == 2) & (sign >= 0) & valid, "o", "#f0883e", "r-band parlama (+)"),
-            ((fid == 2) & (sign < 0) & valid, "v", "#ff4d6d", "r-band KARARMA (-)"),
+            ((fid == 1) & (sign >= 0) & valid, "o", "#39c5cf", "g-band brightening (+)"),
+            ((fid == 1) & (sign < 0) & valid, "v", "#a371f7", "g-band DIMMING (-)"),
+            ((fid == 2) & (sign >= 0) & valid, "o", "#f0883e", "r-band brightening (+)"),
+            ((fid == 2) & (sign < 0) & valid, "v", "#ff4d6d", "r-band DIMMING (-)"),
         ]
         for mask, marker, color, lbl in specs:
             if np.any(mask):
@@ -172,9 +172,9 @@ class ZTFWeirdTriage:
                 )
 
         self.ax_lc.invert_yaxis()  # Astronomy convention: smaller mag = brighter (up)
-        self.ax_lc.set_title("ZTF Isik Egrisi (Yukari = Parlak | Asagi = Kararma)", color="#c9d1d9", fontsize=10)
-        self.ax_lc.set_xlabel("Ilk gozlemden itibaren gecen gun", color="#8b949e", fontsize=9)
-        self.ax_lc.set_ylabel("Parlaklik (mag)", color="#8b949e", fontsize=9)
+        self.ax_lc.set_title("ZTF Light Curve (Up = Brighter | Down = Dimming)", color="#c9d1d9", fontsize=10)
+        self.ax_lc.set_xlabel("Days since first detection", color="#8b949e", fontsize=9)
+        self.ax_lc.set_ylabel("Brightness (mag)", color="#8b949e", fontsize=9)
         self.ax_lc.grid(True, color="#21262d", linestyle="--")
         self.ax_lc.tick_params(colors="#8b949e")
         self.ax_lc.legend(loc="best", facecolor="#0d1117", edgecolor="#30363d", labelcolor="#c9d1d9", fontsize=8)
@@ -193,12 +193,12 @@ class ZTFWeirdTriage:
             self.ax_col.set_ylim(ylo, yhi)
         else:
             self.ax_col.text(
-                0.5, 0.5, f"Eslesmis g-r yok\n(Medyan g-r: {g_minus_r:+.2f})",
+                0.5, 0.5, f"No paired g-r epochs\n(Median g-r: {g_minus_r:+.2f})",
                 transform=self.ax_col.transAxes, ha="center", va="center", color="#8b949e", fontsize=9
             )
             self.ax_col.set_ylim(-0.8, 1.0)
 
-        self.ax_col.set_title("Renk Evrimi (g - r) | Mavi Bolge < 0 = Sicak / TDE-FBOT", color="#c9d1d9", fontsize=9.5)
+        self.ax_col.set_title("Color Evolution (g - r) | Blue Zone < 0 = Hot / TDE-FBOT", color="#c9d1d9", fontsize=9.5)
         self.ax_col.set_ylabel("g - r (mag)", color="#8b949e", fontsize=8.5)
         self.ax_col.grid(True, color="#21262d", linestyle="--")
         self.ax_col.tick_params(colors="#8b949e")
@@ -206,7 +206,7 @@ class ZTFWeirdTriage:
         # --- Right-Bottom Panel: Weirdness & AI Metrics ---
         self.ax_bar.clear()
         self.ax_bar.set_facecolor("#161b22")
-        labels = ["Real/Bogus", "AI Entropi", "AI Kavga", "Kararma (-)", "Weirdness"]
+        labels = ["Real/Bogus", "AI Entropy", "AI Conflict", "Dimming (-)", "Weirdness"]
         vals = [
             rb_med,
             lc_ent,
@@ -222,7 +222,7 @@ class ZTFWeirdTriage:
         self.ax_bar.set_xlim(0.0, 1.05)
         for yp, v in zip(y_pos, vals):
             self.ax_bar.text(min(v + 0.02, 0.90), yp, f"{v*100:.0f}%", va="center", color="#c9d1d9", fontsize=8)
-        self.ax_bar.set_title("Anomali & AI Sinyal Kirilimi", color="#c9d1d9", fontsize=9.5)
+        self.ax_bar.set_title("Anomaly & AI Signal Breakdown", color="#c9d1d9", fontsize=9.5)
         self.ax_bar.grid(True, axis="x", color="#21262d", linestyle="--")
         self.ax_bar.tick_params(colors="#8b949e")
 

@@ -4,7 +4,6 @@
 ![GitHub Actions](https://img.shields.io/badge/GitHub%20Actions-Nightly-2088FF?logo=githubactions&logoColor=white)
 ![ZTF / ALeRCE](https://img.shields.io/badge/Data-ZTF%20%2F%20ALeRCE-8957E5)
 ![Scikit-Learn](https://img.shields.io/badge/ML-Isolation%20Forest-F7931E)
-![Google Antigravity](https://img.shields.io/badge/Built%20with-Google%20Antigravity-4285F4?logo=google&logoColor=white)
 
 After building [TESS Planet Hunter](https://github.com/CemreMetin/tess-planet-hunter) — and finding out the hard way that the IAU won't let me name an exoplanet after myself — I moved on to the next obvious target: **supernovae**. Unlike planets, new supernovae go off every single night in open **ZTF (Zwicky Transient Facility)** data, so the odds of catching something real are way higher.
 
