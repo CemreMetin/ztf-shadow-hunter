@@ -5,11 +5,18 @@
 ![ZTF / ALeRCE](https://img.shields.io/badge/Data-ZTF%20%2F%20ALeRCE-8957E5)
 ![Scikit-Learn](https://img.shields.io/badge/ML-Isolation%20Forest-F7931E)
 
-After building [TESS Planet Hunter](https://github.com/CemreMetin/tess-planet-hunter) — and finding out the hard way that the IAU won't let me name an exoplanet after myself — I moved on to the next obvious target: **supernovae**. Unlike planets, new supernovae go off every single night in open **ZTF (Zwicky Transient Facility)** data, so the odds of catching something real are way higher.
+**Part III of the Sunday Hunter Trilogy** — after chasing exoplanets in space ([TESS Planet Hunter](https://github.com/CemreMetin/tess-planet-hunter)) and buried Roman walls under Anatolian wheat fields ([Subsurface Ghost Hunter](https://github.com/CemreMetin/Subsurface-ghost-hunter)), I pointed my Sunday coffee ritual back up at the night sky, this time with **ZTF (Zwicky Transient Facility)**.
 
-There was just one problem: literally *everyone* in astronomy runs the exact same `SN probability > 0.70` filter. Professional survey bots already report the obvious textbook supernovae to TNS within minutes. Sitting in the back of the same traffic jam didn't sound like much fun, so I decided to dig through **ZTF's trash can** instead.
+The original plan was simple: if I can't name a planet, maybe I can at least catch a fresh **supernova**. New ones explode every night in open ZTF data, so the odds looked great — right up until I realized every automated broker on Earth already runs `SN probability > 0.70` and reports the obvious ones to TNS before I've even finished brushing my teeth.
 
-Every night, a zero-cost GitHub Actions job scans ALeRCE for two things most supernova pipelines throw away or ignore — **stars that suddenly go dark** and **weird events where two AIs disagree** — cross-checks them against **SIMBAD** and **AAVSO VSX**, and packs the best candidates into tiny `.npz` files so I can review them in 15 minutes on Sunday with a keyboard-driven dark-mode UI.
+Instead of racing billion-dollar survey pipelines for textbook explosions, I built a nightly bot that **rummages through ZTF's recycling bin**. Every night, a free GitHub Actions worker scans ALeRCE for the two things most supernova pipelines throw away or gloss over — **stars that suddenly go dark** (`isdiffpos = -1`) and **weird events where two AIs can't agree on what they're looking at** — cross-checks them against **SIMBAD** and **AAVSO VSX**, and packs the best candidates into tiny `.npz` files for a 15-minute Sunday keyboard review.
+
+### The Sunday Hunter Trilogy
+| Part | Project | What It Hunts | Open Data |
+| :---: | :--- | :--- | :--- |
+| **I** | [TESS Planet Hunter](https://github.com/CemreMetin/tess-planet-hunter) | Undiscovered exoplanets | NASA TESS |
+| **II** | [Subsurface Ghost Hunter](https://github.com/CemreMetin/Subsurface-ghost-hunter) | Buried Roman foundations in Niğde | ESA Sentinel-2 |
+| **III** | **ZTF Shadow & Blindspot Hunter** *(this repo)* | Suddenly dimming stars & AI blind spots | ZTF / ALeRCE |
 
 ---
 
